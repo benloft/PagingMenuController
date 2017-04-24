@@ -23,6 +23,13 @@ open class MenuItemView: UIView {
             addSubview(customView)
         }
     }
+    public fileprivate(set) var customSelectedView: UIView? {
+        didSet {
+            guard let customSelectedView = customSelectedView else { return }
+
+            addSubview(customSelectedView)
+        }
+    }
     public internal(set) var isSelected: Bool = false {
         didSet {
             if case .roundRect = menuOptions.focusMode {
@@ -47,7 +54,12 @@ open class MenuItemView: UIView {
                 descriptionWidthConstraint.constant = calculateLabelSize(descriptionLabel, maxWidth: maxWindowSize).width
             case let .image(image, selectedImage):
                 menuImageView.image = isSelected ? (selectedImage ?? image) : image
-            case .custom: break
+            case .custom(_, _):
+                if let view = customView, let selectedView = customSelectedView {
+                    let from = isSelected ? view : selectedView
+                    let to = isSelected ? selectedView : view
+                    UIView.transition(from: from, to: to, duration: menuOptions.animationDuration, options: [.showHideTransitionViews, .transitionCrossDissolve], completion: nil)
+                }
             }
         }
     }
@@ -93,10 +105,11 @@ open class MenuItemView: UIView {
                 self.setupImageView(image)
                 self.layoutImageView()
             })
-        case .custom(let view):
+        case .custom(let view, let selectedView):
             commonInit({
-                self.setupCustomView(view)
+                self.setupCustomViews(view, selectedView)
                 self.layoutCustomView()
+                self.layoutCustomSelectedView()
             })
         }
     }
@@ -176,8 +189,9 @@ open class MenuItemView: UIView {
         addSubview(menuImageView)
     }
     
-    fileprivate func setupCustomView(_ view: UIView) {
+    fileprivate func setupCustomViews(_ view: UIView, _ selectedView: UIView?) {
         customView = view
+        customSelectedView = selectedView
     }
     
     fileprivate func setupDivider() {
@@ -262,7 +276,21 @@ open class MenuItemView: UIView {
             widthConstraint
             ])
     }
-    
+
+    fileprivate func layoutCustomSelectedView() {
+        guard let customView = customSelectedView else { return }
+
+        widthConstraint = NSLayoutConstraint(item: self, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1.0, constant: customView.frame.width)
+
+        NSLayoutConstraint.activate([
+            NSLayoutConstraint(item: customView, attribute: .centerX, relatedBy: .equal, toItem: self, attribute: .centerX, multiplier: 1.0, constant: 0.0),
+            NSLayoutConstraint(item: customView, attribute: .centerY, relatedBy: .equal, toItem: self, attribute: .centerY, multiplier: 1.0, constant: 0.0),
+            NSLayoutConstraint(item: customView, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1.0, constant: customView.frame.width),
+            NSLayoutConstraint(item: customView, attribute: .height, relatedBy: .equal, toItem: nil, attribute: .height, multiplier: 1.0, constant: customView.frame.height),
+            widthConstraint
+            ])
+    }
+
     fileprivate func layoutDivider() {
         guard let dividerImageView = dividerImageView else { return }
         
@@ -285,6 +313,7 @@ extension MenuItemView {
             menuImageView.removeFromSuperview()
         case .custom:
             customView?.removeFromSuperview()
+            customSelectedView?.removeFromSuperview()
         }
         
         dividerImageView?.removeFromSuperview()
